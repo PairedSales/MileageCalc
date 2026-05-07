@@ -1,0 +1,40 @@
+:root {
+  --bg: #282a36;
+  --line: #44475a;
+  --fg: #f8f8f2;
+  --comment: #6272a4;
+  --purple: #bd93f9;
+  --pink: #ff79c6;
+  --green: #50fa7b;
+  --orange: #ffb86c;
+  --yellow: #f1fa8c;
+  --red: #ff5555;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Inter, system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+.app-shell { max-width: 1200px; margin: 0 auto; padding: 1rem; display: grid; gap: 1rem; }
+.panel { background: #313442; border: 1px solid var(--line); border-radius: 12px; padding: 1rem; box-shadow: 0 8px 20px rgba(0,0,0,.2); }
+.field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .8rem; }
+label { display: grid; gap: .35rem; color: var(--comment); font-weight: 600; }
+input { border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); padding: .6rem .7rem; }
+input:focus { outline: 2px solid var(--purple); }
+button { background: var(--purple); color: #1f2130; border: 0; padding: .6rem .9rem; border-radius: 8px; font-weight: 700; cursor: pointer; }
+button:hover { filter: brightness(1.08); }
+button.ghost { background: transparent; color: var(--orange); border: 1px solid var(--orange); }
+.actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .75rem; }
+.summary-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap:.75rem; }
+.summary-card h3 { margin:0; color:var(--comment); font-size:.9rem }
+.summary-card p { margin:.3rem 0 0; font-size:1.4rem; color:var(--yellow); }
+.table-wrap { overflow: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { border-bottom: 1px solid var(--line); padding: .55rem; text-align: left; }
+tr.edited { background: rgba(255, 184, 108, 0.12); }
+.status-ok { color: var(--green); }
+.status-error { color: var(--red); }
+.status-dup { color: var(--pink); }
+.progress-bar { background: var(--line); border-radius:999px; overflow:hidden; height: 10px; }
+#progressFill { background: linear-gradient(90deg,var(--purple),var(--pink)); width:0%; height:100%; transition: width .2s; }
+.progress-meta { display:flex; justify-content:space-between; margin-bottom:.45rem; color:var(--comment); }
+.api-note { color: var(--comment); margin-top: .5rem; }
+a { color: var(--orange); }
+@media (max-width: 700px) { th:nth-child(2), td:nth-child(2) { display:none; } }
