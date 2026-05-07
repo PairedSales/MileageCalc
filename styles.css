@@ -14,6 +14,15 @@
 body { margin: 0; font-family: Inter, system-ui, sans-serif; background: var(--bg); color: var(--fg); }
 .app-shell { max-width: 1200px; margin: 0 auto; padding: 1rem; display: grid; gap: 1rem; }
 .panel { background: #313442; border: 1px solid var(--line); border-radius: 12px; padding: 1rem; box-shadow: 0 8px 20px rgba(0,0,0,.2); }
+.header-layout { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+.quota-status-card { min-width: 320px; max-width: 410px; transition: border-color .2s ease, box-shadow .2s ease; }
+.quota-status-card h2 { margin: 0 0 .3rem; font-size: 1rem; }
+.quota-status-card dl { display:grid; grid-template-columns: 1fr auto; gap:.3rem .8rem; margin:0; }
+.quota-status-card dt { color: var(--comment); }
+.quota-status-card dd { margin:0; font-weight:700; }
+.quota-healthy { border-color: var(--green); }
+.quota-warning { border-color: var(--orange); }
+.quota-critical, .quota-exhausted { border-color: var(--red); }
 .field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .8rem; }
 label { display: grid; gap: .35rem; color: var(--comment); font-weight: 600; }
 input { border-radius: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); padding: .6rem .7rem; }
@@ -37,6 +46,7 @@ tr.edited { background: rgba(255, 184, 108, 0.12); }
 .progress-meta { display:flex; justify-content:space-between; margin-bottom:.45rem; color:var(--comment); }
 .api-note { color: var(--comment); margin-top: .5rem; }
 a { color: var(--orange); }
+@media (max-width: 900px) { .header-layout { flex-direction: column; } .quota-status-card { min-width: 100%; } }
 @media (max-width: 700px) { th:nth-child(2), td:nth-child(2) { display:none; } }
 
 .checkbox-label { display:flex; align-items:center; gap:.5rem; color:var(--fg); font-weight:600; }
