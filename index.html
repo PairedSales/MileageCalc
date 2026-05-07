@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mileage Calculator</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+    <script type="module" src="src/main.js" defer></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header>
+        <h1>Mileage Calculator</h1>
+        <p>Client-side round-trip mileage calculator using Nominatim + openrouteservice.</p>
+      </header>
+
+      <section class="panel form-panel">
+        <div class="field-grid">
+          <label>
+            Home Address
+            <input id="homeAddress" type="text" placeholder="100 First St Chicago IL" />
+          </label>
+          <label>
+            openrouteservice API Key
+            <input id="apiKey" type="password" placeholder="Paste API key" autocomplete="off" />
+          </label>
+          <label>
+            Spreadsheet (.csv, .xlsx)
+            <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" />
+          </label>
+        </div>
+        <div class="api-note">
+          Get a free API key: <a href="https://openrouteservice.org/dev/#/signup" target="_blank" rel="noreferrer">openrouteservice signup</a>. Key is held in-memory and sessionStorage only.
+        </div>
+        <div class="actions">
+          <button id="processBtn">Process Addresses</button>
+          <button id="exportBtn" disabled>Export CSV</button>
+          <button id="clearBtn" class="ghost">Reset</button>
+        </div>
+      </section>
+
+      <section class="panel progress-panel" id="progressPanel" hidden>
+        <div class="progress-meta">
+          <span id="progressText">Waiting…</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar"><div id="progressFill"></div></div>
+      </section>
+
+      <section class="summary-grid" id="summaryGrid">
+        <article class="panel summary-card"><h3>Processed</h3><p id="summaryProcessed">0</p></article>
+        <article class="panel summary-card"><h3>Total Miles</h3><p id="summaryMiles">0.00</p></article>
+        <article class="panel summary-card"><h3>Failed</h3><p id="summaryFailed">0</p></article>
+        <article class="panel summary-card"><h3>Edited Rows</h3><p id="summaryEdited">0</p></article>
+      </section>
+
+      <section class="panel" id="errorPanel" hidden>
+        <h3>Errors</h3>
+        <ul id="errorList"></ul>
+      </section>
+
+      <section class="panel">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Address</th>
+                <th>Calculated Miles</th>
+                <th>Editable Miles</th>
+                <th>Status / Error</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
