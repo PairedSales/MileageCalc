@@ -1,4 +1,6 @@
-export async function processMileage({ homeAddress, destinations, geocoder, router, cache, onProgress }) {
+import { QuotaExhaustedError } from './routingProvider.js';
+
+export async function processMileage({ homeAddress, destinations, geocoder, router, cache, onProgress, groupDuplicates = true }) {
   const rows = [];
   const seen = new Set();
   const homeGeo = await geocoder.geocode(homeAddress);
@@ -7,7 +9,7 @@ export async function processMileage({ homeAddress, destinations, geocoder, rout
     const address = destinations[i];
     const norm = cache.normalizeAddress(address);
     const row = { id: crypto.randomUUID(), address, status: 'Pending', calculatedMiles: null, finalMiles: null, edited: false };
-    if (seen.has(norm)) {
+    if (groupDuplicates && seen.has(norm)) {
       row.status = 'Duplicate address';
       rows.push(row);
       onProgress?.(i + 1, destinations.length, row.status);
@@ -28,6 +30,10 @@ export async function processMileage({ homeAddress, destinations, geocoder, rout
       row.status = cached ? 'Cached' : 'OK';
     } catch (e) {
       row.status = e.message;
+      rows.push(row);
+      onProgress?.(i + 1, destinations.length, row.status);
+      if (e instanceof QuotaExhaustedError) break;
+      continue;
     }
     rows.push(row);
     onProgress?.(i + 1, destinations.length, row.status);

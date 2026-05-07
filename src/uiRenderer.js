@@ -35,4 +35,16 @@ export class UIRenderer {
     this.el.errorPanel.hidden = errors.length === 0;
     this.el.errorList.innerHTML = errors.map(e => `<li>${e.address}: ${e.status}</li>`).join('');
   }
+
+  renderQuota(quota) {
+    const statusClass = `quota-${quota.quotaStatus.toLowerCase()}`;
+    this.el.quotaCard.className = `panel quota-status-card ${statusClass}`;
+    this.el.quotaRemaining.textContent = quota.quotaAvailable ? `${quota.remainingQuota.toLocaleString()}` : 'Quota unavailable';
+    this.el.quotaLimit.textContent = quota.quotaAvailable ? `${quota.totalQuota.toLocaleString()}` : '—';
+    this.el.quotaEstimate.textContent = `~${quota.estimatedJobCost.toLocaleString()} requests`;
+    this.el.quotaStatus.textContent = quota.quotaStatus;
+    const updated = quota.lastUpdated ? quota.lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Waiting…';
+    this.el.quotaUpdated.textContent = updated;
+    this.el.quotaLoading.hidden = !quota.loading;
+  }
 }
