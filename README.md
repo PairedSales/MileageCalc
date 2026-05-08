@@ -13,6 +13,7 @@ A production-focused web app that calculates **round-trip driving mileage** from
 - sessionStorage API key persistence (tab session only)
 - Dracula-inspired responsive UI
 - CSV export of final results
+- Live openrouteservice quota card from `X-RateLimit-*` response headers
 
 ## Quick Start
 1. Open `index.html` via a static server (recommended):
@@ -27,20 +28,31 @@ A production-focused web app that calculates **round-trip driving mileage** from
 - Directions docs: https://openrouteservice.org/dev/#/api-docs/v2/directions/{profile}/post
 - Paste key into app each session (temporary sessionStorage only).
 
-## Free-tier limits & usage planning
-Check your account dashboard for current limits; limits can change. Typical usage for one destination:
-- 1 geocode call for destination (cached after first success)
-- 1 route call for home→destination (round-trip doubled locally)
-- 0 extra calls if cached
+## Quota detection behavior
+The app reads these response headers from ORS routing responses:
+- `X-RateLimit-Limit`
+- `X-RateLimit-Remaining`
+- `X-RateLimit-Reset`
 
-For 1,000 new addresses expect roughly:
-- ~1,001 geocode calls (incl. home once)
-- ~1,000 route calls
+How it works:
+- Quota data updates during API key validation and every route request.
+- If headers are missing, app continues normally and shows **Quota unavailable**.
+- Quota values are held **in memory only** and are not persisted to localStorage.
+- HTTP `429` is authoritative: processing halts and partial results remain exportable.
 
-## Recommended throttling strategy
-- Nominatim: 1+ second delay between requests
-- Retry transient errors with exponential backoff
-- Keep small async gaps to keep UI responsive
+## Quota status thresholds
+- **Healthy**: >50% remaining
+- **Warning**: 20%–50% remaining
+- **Critical**: <20% remaining
+- **Exhausted**: `0` remaining or HTTP `429`
+
+## Estimated job cost
+Estimated route requests are calculated from:
+- Spreadsheet row count
+- Duplicate grouping toggle state
+- Existing cached distances
+
+This estimate is approximate and may differ from ORS-reported remaining quota due to external usage, reset timing, or server-side accounting.
 
 ## Caching strategy
 - `localStorage` keys:
@@ -48,12 +60,7 @@ For 1,000 new addresses expect roughly:
   - `mileagecalc:dist:v1`
 - Cache key is normalized address string (`lowercase`, trimmed, single-space)
 - Never cache API keys
-
-## Scaling path (self-host OSRM)
-If you outgrow hosted limits:
-1. Deploy OSRM with regional extracts.
-2. Replace provider layer implementation while keeping `processMileage` untouched.
-3. Add a `OsrmProvider` class matching provider interface.
+- Never persist quota values
 
 ## Deployment
 ### GitHub Pages
@@ -79,5 +86,8 @@ If you outgrow hosted limits:
 - `src/cacheManager.js`
 - `src/mileageCalculator.js`
 - `src/uiRenderer.js`
+- `src/quotaService.js`
+- `src/rateLimitParser.js`
+- `src/requestEstimator.js`
 - `src/exportService.js`
 - `src/validation.js`

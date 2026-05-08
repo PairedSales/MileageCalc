@@ -10,9 +10,22 @@
   </head>
   <body>
     <main class="app-shell">
-      <header>
-        <h1>Mileage Calculator</h1>
-        <p>Client-side round-trip mileage calculator using Nominatim + openrouteservice.</p>
+      <header class="header-layout">
+        <div>
+          <h1>Mileage Calculator</h1>
+          <p>Client-side round-trip mileage calculator using Nominatim + openrouteservice.</p>
+        </div>
+        <aside id="quotaCard" class="panel quota-status-card quota-unknown" aria-live="polite">
+          <h2>API Quota</h2>
+          <p id="quotaLoading">Loading quota data…</p>
+          <dl>
+            <dt title="Remaining openrouteservice requests from latest response headers">Remaining</dt><dd id="quotaRemaining">Quota unavailable</dd>
+            <dt>Total Limit</dt><dd id="quotaLimit">—</dd>
+            <dt title="Estimated number of requests needed for this spreadsheet">Estimated Job Cost</dt><dd id="quotaEstimate">~0 requests</dd>
+            <dt title="Health based on remaining percentage and 429 responses">Status</dt><dd id="quotaStatus">Unknown</dd>
+            <dt>Updated</dt><dd id="quotaUpdated">Waiting…</dd>
+          </dl>
+        </aside>
       </header>
 
       <section class="panel form-panel">
@@ -28,6 +41,10 @@
           <label>
             Spreadsheet (.csv, .xlsx)
             <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" />
+          </label>
+          <label class="toggle-wrap">
+            Group duplicate addresses
+            <input id="groupDuplicates" type="checkbox" checked />
           </label>
         </div>
         <div class="api-note">
