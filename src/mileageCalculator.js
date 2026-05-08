@@ -1,6 +1,4 @@
 import { QuotaExhaustedError } from './routingProvider.js';
-
-export async function processMileage({ homeAddress, destinations, geocoder, router, cache, onProgress, groupDuplicates = true }) {
 import { buildDailyGroups } from './grouping-engine.js';
 
 async function getLegMiles(fromAddress, fromGeo, toAddress, toGeo, router, cache) {
@@ -17,18 +15,21 @@ export async function processMileage({ homeAddress, destinations, geocoder, rout
   const processed = [];
 
   for (let i = 0; i < destinations.length; i++) {
-    const address = destinations[i];
-    const norm = cache.normalizeAddress(address);
-    const row = { id: crypto.randomUUID(), address, status: 'Pending', calculatedMiles: null, finalMiles: null, edited: false };
-    if (groupDuplicates && seen.has(norm)) {
-      row.status = 'Duplicate address';
-      rows.push(row);
-      onProgress?.(i + 1, destinations.length, row.status);
-      continue;
-    }
-    seen.add(norm);
     const dest = destinations[i];
-    const row = { id: crypto.randomUUID(), address: dest.address, date: dest.date, status: 'Pending', calculatedMiles: null, finalMiles: null, baselineMiles: null, edited: false, groupId: null, sequence: 1, grouped: false };
+    const row = {
+      id: crypto.randomUUID(),
+      address: dest.address,
+      date: dest.date,
+      status: 'Pending',
+      calculatedMiles: null,
+      finalMiles: null,
+      baselineMiles: null,
+      edited: false,
+      groupId: null,
+      sequence: 1,
+      grouped: false
+    };
+
     try {
       row.geo = await geocoder.geocode(dest.address);
       row.status = 'Ready';
@@ -39,6 +40,7 @@ export async function processMileage({ homeAddress, destinations, geocoder, rout
       if (e instanceof QuotaExhaustedError) break;
       continue;
     }
+
     processed.push(row);
     onProgress?.(i + 1, destinations.length, row.status);
   }
