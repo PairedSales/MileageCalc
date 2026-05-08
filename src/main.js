@@ -62,20 +62,68 @@ const refreshQuotaFromKey = debounce(async () => {
 }, 450);
 
 function renderAll() { ui.render(rows, handlers); ui.renderSummary(rows); ui.renderErrors(rows); el.exportBtn.disabled = rows.length === 0; }
-function refreshEstimate() { quotaService.setEstimate(estimateRequests({ destinations: parsedDestinations.map(d => d.address), homeAddress: el.homeAddress.value.trim(), cache, groupDuplicates: true })); }
+function refreshEstimate() { quotaService.setEstimate(estimateRequests({ destinations: addresses, homeAddress: el.homeAddress.value.trim(), cache, groupDuplicates: el.groupDuplicates.checked })); }
+let parsedDestinations = [];
+
+el.apiKey.value = sessionStorage.getItem('mileagecalc:ors:key') || '';
+el.groupToggle.checked = sessionStorage.getItem('mileagecalc:grouping') !== 'off';
+el.apiKey.addEventListener('input', () => sessionStorage.setItem('mileagecalc:ors:key', el.apiKey.value.trim()));
+
+function renderAll() {
+  ui.render(rows, handlers);
+  ui.renderSummary(rows);
+  ui.renderErrors(rows);
+  el.exportBtn.disabled = rows.length === 0;
+}
+
+function refreshEstimate() {
+  quotaService.setEstimate(
+    estimateRequests({
+      destinations: parsedDestinations,
+      homeAddress: el.homeAddress.value.trim(),
+      cache,
+      groupNearbySameDay: el.groupToggle.checked
+    })
+  );
+}
 
 async function recalcFromParsed() {
   if (!parsedDestinations.length) return;
   const router = new OpenRouteServiceProvider(el.apiKey.value.trim(), { onResponse: (res) => quotaService.updateFromResponse(res) });
   const geocoder = new Geocoder(cache);
-  rows = await processMileage({ homeAddress: el.homeAddress.value.trim(), destinations: parsedDestinations, geocoder, router, cache, groupNearbySameDay: el.groupToggle.checked });
+  rows = await processMileage({
+    homeAddress: el.homeAddress.value.trim(),
+    destinations: parsedDestinations,
+    geocoder,
+    router,
+    cache,
+    groupNearbySameDay: el.groupToggle.checked
+  });
   renderAll();
 }
 
 const handlers = {
-  onEdit: (id, value) => { const row = rows.find(r => r.id === id); if (!row) return; const n = Number(value); if (Number.isFinite(n) && n >= 0) { row.finalMiles = n; row.edited = row.calculatedMiles !== n; renderAll(); } },
-  onRevert: (id) => { const row = rows.find(r => r.id === id); if (!row) return; row.finalMiles = row.calculatedMiles; row.edited = false; renderAll(); },
-  onRemove: (id) => { rows = rows.filter(r => r.id !== id); renderAll(); },
+  onEdit: (id, value) => {
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    const n = Number(value);
+    if (Number.isFinite(n) && n >= 0) {
+      row.finalMiles = n;
+      row.edited = row.calculatedMiles !== n;
+      renderAll();
+    }
+  },
+  onRevert: (id) => {
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    row.finalMiles = row.calculatedMiles;
+    row.edited = false;
+    renderAll();
+  },
+  onRemove: (id) => {
+    rows = rows.filter((r) => r.id !== id);
+    renderAll();
+  },
   onRetry: recalcFromParsed
 };
 
@@ -85,8 +133,10 @@ el.fileInput.addEventListener('change', async () => {
   parsedDestinations = file ? await parseSpreadsheet(file) : [];
   refreshEstimate();
 });
+
 el.groupToggle.addEventListener('change', async () => {
   sessionStorage.setItem('mileagecalc:grouping', el.groupToggle.checked ? 'on' : 'off');
+  refreshEstimate();
   await recalcFromParsed();
 });
 
@@ -95,11 +145,19 @@ el.processBtn.addEventListener('click', async () => {
   const homeAddress = el.homeAddress.value.trim();
   const apiKey = el.apiKey.value.trim();
   const errors = validateInputs({ homeAddress, apiKey, file });
-  if (errors.length) { alert(errors.join('\n')); return; }
+  if (errors.length) {
+    alert(errors.join('\n'));
+    return;
+  }
 
   el.progressPanel.hidden = false;
   const router = new OpenRouteServiceProvider(apiKey, { onResponse: (res) => quotaService.updateFromResponse(res) });
-  try { await router.validateKey(); } catch (e) { alert(e.message); return; }
+  try {
+    await router.validateKey();
+  } catch (e) {
+    alert(e.message);
+    return;
+  }
 
   try {
     parsedDestinations = await parseSpreadsheet(file);
@@ -109,6 +167,7 @@ el.processBtn.addEventListener('click', async () => {
   }
 
   refreshEstimate();
+
   const geocoder = new Geocoder(cache);
   rows = await processMileage({
     homeAddress,
@@ -124,7 +183,8 @@ el.processBtn.addEventListener('click', async () => {
       el.progressFill.style.width = `${pct}%`;
     }
   });
-  if (rows.some(r => r.status.includes('quota exhausted'))) {
+
+  if (rows.some((r) => r.status.includes('quota exhausted'))) {
     alert('API quota exhausted. Processing stopped before completion.');
   }
   renderAll();
@@ -140,6 +200,7 @@ el.clearBtn.addEventListener('click', () => {
   refreshEstimate();
   renderAll();
 });
+el.clearBtn.addEventListener('click', () => { rows = []; addresses = []; el.fileInput.value = ''; el.progressPanel.hidden = true; el.progressFill.style.width = '0%'; refreshEstimate(); renderAll(); });
 
 if (el.apiKey.value.trim()) refreshQuotaFromKey();
 else quotaService.emit();

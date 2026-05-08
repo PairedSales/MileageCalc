@@ -45,9 +45,15 @@ export async function processMileage({ homeAddress, destinations, geocoder, rout
     onProgress?.(i + 1, destinations.length, row.status);
   }
 
-  const ready = processed.filter(r => r.status === 'Ready');
-  const byDate = ready.reduce((acc, r) => { (acc[r.date] ||= []).push(r); return acc; }, {});
-  const routable = groupNearbySameDay ? buildDailyGroups(byDate, homeGeo) : ready.map(r => ({ ...r, groupId: null, sequence: 1, grouped: false, groupSize: 1 }));
+  const ready = processed.filter((r) => r.status === 'Ready');
+  const byDate = ready.reduce((acc, r) => {
+    (acc[r.date] ||= []).push(r);
+    return acc;
+  }, {});
+
+  const routable = groupNearbySameDay
+    ? buildDailyGroups(byDate, homeGeo)
+    : ready.map((r) => ({ ...r, groupId: null, sequence: 1, grouped: false, groupSize: 1 }));
 
   const groupBuckets = routable.reduce((acc, r) => {
     const key = `${r.date}|${r.groupId || r.id}`;
@@ -76,8 +82,9 @@ export async function processMileage({ homeAddress, destinations, geocoder, rout
         const base = (await getLegMiles(homeAddress, homeGeo, s.address, s.geo, router, cache)).miles * 2;
         s.baselineMiles = Number(base.toFixed(2));
       }
+
       const perStop = total / stops.length;
-      stops.forEach(s => {
+      stops.forEach((s) => {
         s.calculatedMiles = Number(perStop.toFixed(2));
         s.finalMiles = s.edited ? s.finalMiles : s.calculatedMiles;
         s.status = 'OK';
@@ -96,8 +103,8 @@ export async function processMileage({ homeAddress, destinations, geocoder, rout
     }
   }
 
-  processed.forEach(r => {
-    const enriched = routable.find(x => x.id === r.id);
+  processed.forEach((r) => {
+    const enriched = routable.find((x) => x.id === r.id);
     rows.push({ ...r, ...enriched, geo: undefined });
   });
 

@@ -1,12 +1,12 @@
-export function estimateRequests({ destinations, homeAddress, cache, groupDuplicates }) {
+export function estimateRequests({ destinations, homeAddress, cache }) {
   if (!Array.isArray(destinations) || !homeAddress) return 0;
-  const seen = new Set();
+
   let requests = 0;
-  for (const address of destinations) {
-    const norm = cache.normalizeAddress(address);
-    if (groupDuplicates && seen.has(norm)) continue;
-    seen.add(norm);
+  for (const destination of destinations) {
+    const address = typeof destination === 'string' ? destination : destination?.address;
+    if (!address) continue;
     if (!cache.getDistance(homeAddress, address)) requests += 1;
   }
+
   return requests;
 }
