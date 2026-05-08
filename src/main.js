@@ -45,9 +45,10 @@ const cache = new CacheManager();
 const ui = new UIRenderer(el);
 const quotaService = new QuotaService((quota) => ui.renderQuota(quota));
 let rows = [];
-let addresses = [];
+let parsedDestinations = [];
 
 el.apiKey.value = sessionStorage.getItem('mileagecalc:ors:key') || '';
+el.groupToggle.checked = sessionStorage.getItem('mileagecalc:grouping') !== 'off';
 
 const debounce = (fn, ms = 350) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; };
 
@@ -57,10 +58,8 @@ const refreshQuotaFromKey = debounce(async () => {
   if (!apiKey) { quotaService.resetQuota(); return; }
   quotaService.setLoading(true);
   const router = new OpenRouteServiceProvider(apiKey, { onResponse: (res) => quotaService.updateFromResponse(res) });
-  try { await router.validateKey(); } catch (e) { quotaService.setLoading(false); }
+  try { await router.validateKey(); } catch { quotaService.setLoading(false); }
 }, 450);
-
-el.apiKey.addEventListener('input', refreshQuotaFromKey);
 
 function renderAll() { ui.render(rows, handlers); ui.renderSummary(rows); ui.renderErrors(rows); el.exportBtn.disabled = rows.length === 0; }
 function refreshEstimate() { quotaService.setEstimate(estimateRequests({ destinations: addresses, homeAddress: el.homeAddress.value.trim(), cache, groupDuplicates: el.groupDuplicates.checked })); }
@@ -90,7 +89,7 @@ function refreshEstimate() {
 
 async function recalcFromParsed() {
   if (!parsedDestinations.length) return;
-  const router = new OpenRouteServiceProvider(el.apiKey.value.trim());
+  const router = new OpenRouteServiceProvider(el.apiKey.value.trim(), { onResponse: (res) => quotaService.updateFromResponse(res) });
   const geocoder = new Geocoder(cache);
   rows = await processMileage({
     homeAddress: el.homeAddress.value.trim(),
@@ -128,6 +127,7 @@ const handlers = {
   onRetry: recalcFromParsed
 };
 
+el.apiKey.addEventListener('input', refreshQuotaFromKey);
 el.fileInput.addEventListener('change', async () => {
   const file = el.fileInput.files?.[0];
   parsedDestinations = file ? await parseSpreadsheet(file) : [];
@@ -204,7 +204,5 @@ el.clearBtn.addEventListener('click', () => { rows = []; addresses = []; el.file
 
 if (el.apiKey.value.trim()) refreshQuotaFromKey();
 else quotaService.emit();
-el.clearBtn.addEventListener('click', () => { rows = []; parsedDestinations = []; el.fileInput.value = ''; el.progressPanel.hidden = true; el.progressFill.style.width = '0%'; renderAll(); });
 
-quotaService.emit();
 renderAll();
