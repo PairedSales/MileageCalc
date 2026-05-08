@@ -16,6 +16,24 @@ export class QuotaService {
     };
   }
 
+
+  setLoading(loading) {
+    this.state.loading = loading;
+    this.emit();
+  }
+
+  resetQuota() {
+    this.state.quotaAvailable = false;
+    this.state.totalQuota = null;
+    this.state.remainingQuota = null;
+    this.state.resetTime = null;
+    this.state.lastUpdated = null;
+    this.state.exhausted = false;
+    this.state.loading = false;
+    this.state.quotaStatus = this.getStatus();
+    this.emit();
+  }
+
   setEstimate(estimatedJobCost) {
     this.state.estimatedJobCost = Math.max(0, Number(estimatedJobCost) || 0);
     this.state.quotaStatus = this.getStatus();

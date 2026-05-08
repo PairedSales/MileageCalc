@@ -27,6 +27,24 @@ const ui = new UIRenderer(el);
 const quotaService = new QuotaService((quota) => ui.renderQuota(quota));
 let rows = [];
 let addresses = [];
+
+el.apiKey.value = sessionStorage.getItem('mileagecalc:ors:key') || '';
+
+const debounce = (fn, ms = 350) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; };
+
+const refreshQuotaFromKey = debounce(async () => {
+  const apiKey = el.apiKey.value.trim();
+  sessionStorage.setItem('mileagecalc:ors:key', apiKey);
+  if (!apiKey) { quotaService.resetQuota(); return; }
+  quotaService.setLoading(true);
+  const router = new OpenRouteServiceProvider(apiKey, { onResponse: (res) => quotaService.updateFromResponse(res) });
+  try { await router.validateKey(); } catch (e) { quotaService.setLoading(false); }
+}, 450);
+
+el.apiKey.addEventListener('input', refreshQuotaFromKey);
+
+function renderAll() { ui.render(rows, handlers); ui.renderSummary(rows); ui.renderErrors(rows); el.exportBtn.disabled = rows.length === 0; }
+function refreshEstimate() { quotaService.setEstimate(estimateRequests({ destinations: addresses, homeAddress: el.homeAddress.value.trim(), cache, groupDuplicates: el.groupDuplicates.checked })); }
 let parsedDestinations = [];
 
 el.apiKey.value = sessionStorage.getItem('mileagecalc:ors:key') || '';
@@ -116,6 +134,9 @@ el.processBtn.addEventListener('click', async () => {
 
 el.exportBtn.addEventListener('click', () => exportCsv(rows));
 el.clearBtn.addEventListener('click', () => { rows = []; addresses = []; el.fileInput.value = ''; el.progressPanel.hidden = true; el.progressFill.style.width = '0%'; refreshEstimate(); renderAll(); });
+
+if (el.apiKey.value.trim()) refreshQuotaFromKey();
+else quotaService.emit();
 el.clearBtn.addEventListener('click', () => { rows = []; parsedDestinations = []; el.fileInput.value = ''; el.progressPanel.hidden = true; el.progressFill.style.width = '0%'; renderAll(); });
 
 quotaService.emit();
