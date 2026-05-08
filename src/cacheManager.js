@@ -10,4 +10,17 @@ export class CacheManager {
   setGeocode(address, value) { const m = read(GEO_KEY); m[this.normalizeAddress(address)] = value; write(GEO_KEY, m); }
   getDistance(home, destination) { return read(DIST_KEY)[`${this.normalizeAddress(home)}|${this.normalizeAddress(destination)}`] ?? null; }
   setDistance(home, destination, miles) { const m = read(DIST_KEY); m[`${this.normalizeAddress(home)}|${this.normalizeAddress(destination)}`] = miles; write(DIST_KEY, m); }
+
+  getLegDistance(a, b) {
+    const m = read(DIST_KEY);
+    const key = `${this.normalizeAddress(a)}|${this.normalizeAddress(b)}`;
+    const rev = `${this.normalizeAddress(b)}|${this.normalizeAddress(a)}`;
+    return m[key] ?? m[rev] ?? null;
+  }
+
+  setLegDistance(a, b, miles) {
+    const m = read(DIST_KEY);
+    m[`${this.normalizeAddress(a)}|${this.normalizeAddress(b)}`] = miles;
+    write(DIST_KEY, m);
+  }
 }

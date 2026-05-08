@@ -45,6 +45,8 @@
           <label class="toggle-wrap">
             Group duplicate addresses
             <input id="groupDuplicates" type="checkbox" checked />
+                    <label class="checkbox-label" title="When enabled, same-day inspections within 10 straight-line miles are chained into one route.">
+            <input id="groupToggle" type="checkbox" checked /> Group nearby same-day inspections
           </label>
         </div>
         <div class="api-note">
@@ -70,6 +72,10 @@
         <article class="panel summary-card"><h3>Total Miles</h3><p id="summaryMiles">0.00</p></article>
         <article class="panel summary-card"><h3>Failed</h3><p id="summaryFailed">0</p></article>
         <article class="panel summary-card"><h3>Edited Rows</h3><p id="summaryEdited">0</p></article>
+        <article class="panel summary-card"><h3>Grouped Routes</h3><p id="summaryGrouped">0</p></article>
+        <article class="panel summary-card"><h3>Standalone Routes</h3><p id="summaryStandalone">0</p></article>
+        <article class="panel summary-card"><h3>Miles Saved</h3><p id="summarySaved">0.00</p></article>
+        <article class="panel summary-card"><h3>Avg Stops/Group</h3><p id="summaryAvgStops">0.00</p></article>
       </section>
 
       <section class="panel" id="errorPanel" hidden>
@@ -83,6 +89,10 @@
             <thead>
               <tr>
                 <th>Address</th>
+                <th>Date</th>
+                <th>Group ID</th>
+                <th>Sequence</th>
+                <th>Grouped Status</th>
                 <th>Calculated Miles</th>
                 <th>Editable Miles</th>
                 <th>Status / Error</th>

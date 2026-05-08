@@ -16,6 +16,11 @@ const el = {
   resultsBody: document.getElementById('resultsBody'), summaryProcessed: document.getElementById('summaryProcessed'), summaryMiles: document.getElementById('summaryMiles'), summaryFailed: document.getElementById('summaryFailed'), summaryEdited: document.getElementById('summaryEdited'),
   errorPanel: document.getElementById('errorPanel'), errorList: document.getElementById('errorList'),
   quotaCard: document.getElementById('quotaCard'), quotaRemaining: document.getElementById('quotaRemaining'), quotaLimit: document.getElementById('quotaLimit'), quotaEstimate: document.getElementById('quotaEstimate'), quotaStatus: document.getElementById('quotaStatus'), quotaUpdated: document.getElementById('quotaUpdated'), quotaLoading: document.getElementById('quotaLoading')
+  homeAddress: document.getElementById('homeAddress'), apiKey: document.getElementById('apiKey'), fileInput: document.getElementById('fileInput'), groupToggle: document.getElementById('groupToggle'),
+  processBtn: document.getElementById('processBtn'), exportBtn: document.getElementById('exportBtn'), clearBtn: document.getElementById('clearBtn'),
+  progressPanel: document.getElementById('progressPanel'), progressText: document.getElementById('progressText'), progressPercent: document.getElementById('progressPercent'), progressFill: document.getElementById('progressFill'),
+  resultsBody: document.getElementById('resultsBody'), summaryProcessed: document.getElementById('summaryProcessed'), summaryMiles: document.getElementById('summaryMiles'), summaryFailed: document.getElementById('summaryFailed'), summaryEdited: document.getElementById('summaryEdited'), summaryGrouped: document.getElementById('summaryGrouped'), summaryStandalone: document.getElementById('summaryStandalone'), summarySaved: document.getElementById('summarySaved'), summaryAvgStops: document.getElementById('summaryAvgStops'),
+  errorPanel: document.getElementById('errorPanel'), errorList: document.getElementById('errorList')
 };
 const cache = new CacheManager();
 const ui = new UIRenderer(el);
@@ -40,6 +45,22 @@ el.apiKey.addEventListener('input', refreshQuotaFromKey);
 
 function renderAll() { ui.render(rows, handlers); ui.renderSummary(rows); ui.renderErrors(rows); el.exportBtn.disabled = rows.length === 0; }
 function refreshEstimate() { quotaService.setEstimate(estimateRequests({ destinations: addresses, homeAddress: el.homeAddress.value.trim(), cache, groupDuplicates: el.groupDuplicates.checked })); }
+let parsedDestinations = [];
+
+el.apiKey.value = sessionStorage.getItem('mileagecalc:ors:key') || '';
+el.groupToggle.checked = sessionStorage.getItem('mileagecalc:grouping') !== 'off';
+el.apiKey.addEventListener('input', () => sessionStorage.setItem('mileagecalc:ors:key', el.apiKey.value.trim()));
+
+function renderAll() { ui.render(rows, handlers); ui.renderSummary(rows); ui.renderErrors(rows); el.exportBtn.disabled = rows.length === 0; }
+function refreshEstimate() { quotaService.setEstimate(estimateRequests({ destinations: addresses, homeAddress: el.homeAddress.value.trim(), cache, groupDuplicates: el.groupDuplicates.checked })); }
+
+async function recalcFromParsed() {
+  if (!parsedDestinations.length) return;
+  const router = new OpenRouteServiceProvider(el.apiKey.value.trim());
+  const geocoder = new Geocoder(cache);
+  rows = await processMileage({ homeAddress: el.homeAddress.value.trim(), destinations: parsedDestinations, geocoder, router, cache, groupNearbySameDay: el.groupToggle.checked });
+  renderAll();
+}
 
 const handlers = {
   onEdit: (id, value) => { const row = rows.find(r => r.id === id); if (!row) return; const n = Number(value); if (Number.isFinite(n) && n >= 0) { row.finalMiles = n; row.edited = row.calculatedMiles !== n; renderAll(); } },
@@ -66,6 +87,13 @@ el.fileInput.addEventListener('change', async () => {
   refreshEstimate();
 });
 el.groupDuplicates.addEventListener('change', refreshEstimate);
+  onRetry: recalcFromParsed
+};
+
+el.groupToggle.addEventListener('change', async () => {
+  sessionStorage.setItem('mileagecalc:grouping', el.groupToggle.checked ? 'on' : 'off');
+  await recalcFromParsed();
+});
 
 el.processBtn.addEventListener('click', async () => {
   const file = el.fileInput.files?.[0];
@@ -82,6 +110,15 @@ el.processBtn.addEventListener('click', async () => {
   const geocoder = new Geocoder(cache);
   rows = await processMileage({
     homeAddress, destinations: addresses, geocoder, router, cache, groupDuplicates: el.groupDuplicates.checked,
+  try {
+    parsedDestinations = await parseSpreadsheet(file);
+  } catch (e) {
+    alert(`Spreadsheet parse error: ${e.message}`);
+    return;
+  }
+  const geocoder = new Geocoder(cache);
+  rows = await processMileage({
+    homeAddress, destinations: parsedDestinations, geocoder, router, cache, groupNearbySameDay: el.groupToggle.checked,
     onProgress: (done, total, status) => {
       const pct = Math.round((done / total) * 100);
       el.progressText.textContent = `${done}/${total} - ${status}`;
@@ -100,4 +137,7 @@ el.clearBtn.addEventListener('click', () => { rows = []; addresses = []; el.file
 
 if (el.apiKey.value.trim()) refreshQuotaFromKey();
 else quotaService.emit();
+el.clearBtn.addEventListener('click', () => { rows = []; parsedDestinations = []; el.fileInput.value = ''; el.progressPanel.hidden = true; el.progressFill.style.width = '0%'; renderAll(); });
+
+quotaService.emit();
 renderAll();

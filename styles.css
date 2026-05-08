@@ -48,3 +48,7 @@ tr.edited { background: rgba(255, 184, 108, 0.12); }
 a { color: var(--orange); }
 @media (max-width: 900px) { .header-layout { flex-direction: column; } .quota-status-card { min-width: 100%; } }
 @media (max-width: 700px) { th:nth-child(2), td:nth-child(2) { display:none; } }
+
+.checkbox-label { display:flex; align-items:center; gap:.5rem; color:var(--fg); font-weight:600; }
+.checkbox-label input{ width:18px; height:18px; }
+tr.grouped { background: rgba(189,147,249,0.14); }
