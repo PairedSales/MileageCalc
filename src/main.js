@@ -50,24 +50,13 @@ let parsedDestinations = [];
 el.apiKey.value = sessionStorage.getItem('mileagecalc:ors:key') || '';
 el.groupToggle.checked = sessionStorage.getItem('mileagecalc:grouping') !== 'off';
 
-const debounce = (fn, ms = 350) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; };
-
-const refreshQuotaFromKey = debounce(async () => {
-  const apiKey = el.apiKey.value.trim();
-  sessionStorage.setItem('mileagecalc:ors:key', apiKey);
-  if (!apiKey) { quotaService.resetQuota(); return; }
-  quotaService.setLoading(true);
-  const router = new OpenRouteServiceProvider(apiKey, { onResponse: (res) => quotaService.updateFromResponse(res) });
-  try { await router.validateKey(); } catch { quotaService.setLoading(false); }
-}, 450);
-
-function renderAll() { ui.render(rows, handlers); ui.renderSummary(rows); ui.renderErrors(rows); el.exportBtn.disabled = rows.length === 0; }
-function refreshEstimate() { quotaService.setEstimate(estimateRequests({ destinations: addresses, homeAddress: el.homeAddress.value.trim(), cache, groupDuplicates: el.groupDuplicates.checked })); }
-let parsedDestinations = [];
-
-el.apiKey.value = sessionStorage.getItem('mileagecalc:ors:key') || '';
-el.groupToggle.checked = sessionStorage.getItem('mileagecalc:grouping') !== 'off';
-el.apiKey.addEventListener('input', () => sessionStorage.setItem('mileagecalc:ors:key', el.apiKey.value.trim()));
+const debounce = (fn, ms = 350) => {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
+};
 
 function renderAll() {
   ui.render(rows, handlers);
@@ -87,9 +76,37 @@ function refreshEstimate() {
   );
 }
 
+function updateQuotaVisibility() {
+  const hasApiKey = Boolean(el.apiKey.value.trim());
+  el.quotaCard.hidden = !hasApiKey;
+}
+
+const refreshQuotaFromKey = debounce(async () => {
+  const apiKey = el.apiKey.value.trim();
+  sessionStorage.setItem('mileagecalc:ors:key', apiKey);
+  updateQuotaVisibility();
+  if (!apiKey) {
+    quotaService.resetQuota();
+    return;
+  }
+
+  quotaService.setLoading(true);
+  const router = new OpenRouteServiceProvider(apiKey, {
+    onResponse: (res) => quotaService.updateFromResponse(res)
+  });
+
+  try {
+    await router.validateKey();
+  } catch {
+    quotaService.setLoading(false);
+  }
+}, 450);
+
 async function recalcFromParsed() {
   if (!parsedDestinations.length) return;
-  const router = new OpenRouteServiceProvider(el.apiKey.value.trim(), { onResponse: (res) => quotaService.updateFromResponse(res) });
+  const router = new OpenRouteServiceProvider(el.apiKey.value.trim(), {
+    onResponse: (res) => quotaService.updateFromResponse(res)
+  });
   const geocoder = new Geocoder(cache);
   rows = await processMileage({
     homeAddress: el.homeAddress.value.trim(),
@@ -200,9 +217,9 @@ el.clearBtn.addEventListener('click', () => {
   refreshEstimate();
   renderAll();
 });
-el.clearBtn.addEventListener('click', () => { rows = []; addresses = []; el.fileInput.value = ''; el.progressPanel.hidden = true; el.progressFill.style.width = '0%'; refreshEstimate(); renderAll(); });
 
+updateQuotaVisibility();
 if (el.apiKey.value.trim()) refreshQuotaFromKey();
-else quotaService.emit();
+else quotaService.resetQuota();
 
 renderAll();
