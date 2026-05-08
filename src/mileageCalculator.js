@@ -1,6 +1,4 @@
 import { QuotaExhaustedError } from './routingProvider.js';
-
-export async function processMileage({ homeAddress, destinations, geocoder, router, cache, onProgress, groupDuplicates = true }) {
 import { buildDailyGroups } from './grouping-engine.js';
 
 async function getLegMiles(fromAddress, fromGeo, toAddress, toGeo, router, cache) {
@@ -17,18 +15,21 @@ export async function processMileage({ homeAddress, destinations, geocoder, rout
   const processed = [];
 
   for (let i = 0; i < destinations.length; i++) {
-    const address = destinations[i];
-    const norm = cache.normalizeAddress(address);
-    const row = { id: crypto.randomUUID(), address, status: 'Pending', calculatedMiles: null, finalMiles: null, edited: false };
-    if (groupDuplicates && seen.has(norm)) {
-      row.status = 'Duplicate address';
-      rows.push(row);
-      onProgress?.(i + 1, destinations.length, row.status);
-      continue;
-    }
-    seen.add(norm);
     const dest = destinations[i];
-    const row = { id: crypto.randomUUID(), address: dest.address, date: dest.date, status: 'Pending', calculatedMiles: null, finalMiles: null, baselineMiles: null, edited: false, groupId: null, sequence: 1, grouped: false };
+    const row = {
+      id: crypto.randomUUID(),
+      address: dest.address,
+      date: dest.date,
+      status: 'Pending',
+      calculatedMiles: null,
+      finalMiles: null,
+      baselineMiles: null,
+      edited: false,
+      groupId: null,
+      sequence: 1,
+      grouped: false
+    };
+
     try {
       row.geo = await geocoder.geocode(dest.address);
       row.status = 'Ready';
@@ -39,13 +40,20 @@ export async function processMileage({ homeAddress, destinations, geocoder, rout
       if (e instanceof QuotaExhaustedError) break;
       continue;
     }
+
     processed.push(row);
     onProgress?.(i + 1, destinations.length, row.status);
   }
 
-  const ready = processed.filter(r => r.status === 'Ready');
-  const byDate = ready.reduce((acc, r) => { (acc[r.date] ||= []).push(r); return acc; }, {});
-  const routable = groupNearbySameDay ? buildDailyGroups(byDate, homeGeo) : ready.map(r => ({ ...r, groupId: null, sequence: 1, grouped: false, groupSize: 1 }));
+  const ready = processed.filter((r) => r.status === 'Ready');
+  const byDate = ready.reduce((acc, r) => {
+    (acc[r.date] ||= []).push(r);
+    return acc;
+  }, {});
+
+  const routable = groupNearbySameDay
+    ? buildDailyGroups(byDate, homeGeo)
+    : ready.map((r) => ({ ...r, groupId: null, sequence: 1, grouped: false, groupSize: 1 }));
 
   const groupBuckets = routable.reduce((acc, r) => {
     const key = `${r.date}|${r.groupId || r.id}`;
@@ -74,8 +82,9 @@ export async function processMileage({ homeAddress, destinations, geocoder, rout
         const base = (await getLegMiles(homeAddress, homeGeo, s.address, s.geo, router, cache)).miles * 2;
         s.baselineMiles = Number(base.toFixed(2));
       }
+
       const perStop = total / stops.length;
-      stops.forEach(s => {
+      stops.forEach((s) => {
         s.calculatedMiles = Number(perStop.toFixed(2));
         s.finalMiles = s.edited ? s.finalMiles : s.calculatedMiles;
         s.status = 'OK';
@@ -94,8 +103,8 @@ export async function processMileage({ homeAddress, destinations, geocoder, rout
     }
   }
 
-  processed.forEach(r => {
-    const enriched = routable.find(x => x.id === r.id);
+  processed.forEach((r) => {
+    const enriched = routable.find((x) => x.id === r.id);
     rows.push({ ...r, ...enriched, geo: undefined });
   });
 
