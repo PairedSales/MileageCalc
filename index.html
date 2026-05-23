@@ -12,7 +12,7 @@
     <main class="app-shell">
       <header>
         <h1>Mileage Calculator</h1>
-        <p>Client-side round-trip mileage calculator using Nominatim + openrouteservice.</p>
+        <p>Client-side mileage calculator with grouped daily routing — supports Individual and Combined trip modes.</p>
       </header>
 
       <section class="panel form-panel">
@@ -26,7 +26,7 @@
             <input id="apiKey" type="password" placeholder="Paste API key" autocomplete="off" />
           </label>
           <label>
-            Spreadsheet (.csv, .xlsx)
+            Spreadsheet (.csv, .xlsx) — columns: Date, Address
             <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" />
           </label>
         </div>
@@ -34,7 +34,7 @@
           Get a free API key: <a href="https://openrouteservice.org/dev/#/signup" target="_blank" rel="noreferrer">openrouteservice signup</a>. Key is held in-memory and sessionStorage only.
         </div>
         <div class="actions">
-          <button id="processBtn">Process Addresses</button>
+          <button id="processBtn">Process Appointments</button>
           <button id="exportBtn" disabled>Export CSV</button>
           <button id="clearBtn" class="ghost">Reset</button>
         </div>
@@ -49,10 +49,23 @@
       </section>
 
       <section class="summary-grid" id="summaryGrid">
-        <article class="panel summary-card"><h3>Processed</h3><p id="summaryProcessed">0</p></article>
-        <article class="panel summary-card"><h3>Total Miles</h3><p id="summaryMiles">0.00</p></article>
+        <article class="panel summary-card"><h3>Days</h3><p id="summaryDays">0</p></article>
+        <article class="panel summary-card"><h3>Appointments</h3><p id="summaryAppointments">0</p></article>
+        <article class="panel summary-card"><h3>Total Individual</h3><p id="summaryIndividual">0.00</p></article>
+        <article class="panel summary-card"><h3>Total Combined</h3><p id="summaryCombined">0.00</p></article>
         <article class="panel summary-card"><h3>Failed</h3><p id="summaryFailed">0</p></article>
-        <article class="panel summary-card"><h3>Edited Rows</h3><p id="summaryEdited">0</p></article>
+      </section>
+
+      <section class="panel mode-panel">
+        <div class="mode-meta">
+          <h3>Display Mode</h3>
+          <p>Switch between calculation views instantly — routes are cached.</p>
+        </div>
+        <div class="mode-toggle" id="modeToggle" role="tablist" aria-label="Calculation mode">
+          <button class="mode-btn" data-mode="individual" role="tab">Individual Trips</button>
+          <button class="mode-btn" data-mode="combined" role="tab">Combined Trips</button>
+          <button class="mode-btn active" data-mode="both" role="tab">Both</button>
+        </div>
       </section>
 
       <section class="panel" id="errorPanel" hidden>
@@ -60,19 +73,23 @@
         <ul id="errorList"></ul>
       </section>
 
+      <section id="dayList" class="day-list mode-both"></section>
+
       <section class="panel">
+        <h3>Per-Day Summary</h3>
         <div class="table-wrap">
-          <table>
+          <table class="summary-table">
             <thead>
               <tr>
-                <th>Address</th>
-                <th>Calculated Miles</th>
-                <th>Editable Miles</th>
-                <th>Status / Error</th>
-                <th>Actions</th>
+                <th>Date</th>
+                <th>Addresses</th>
+                <th class="num">Individual Miles</th>
+                <th class="num">Combined Miles</th>
               </tr>
             </thead>
-            <tbody id="resultsBody"></tbody>
+            <tbody id="perDaySummary">
+              <tr><td colspan="4" class="muted">No data yet.</td></tr>
+            </tbody>
           </table>
         </div>
       </section>
