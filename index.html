@@ -48,6 +48,27 @@
         <div class="progress-bar"><div id="progressFill"></div></div>
       </section>
 
+      <section class="panel live-log-panel" id="liveLogPanel" hidden>
+        <div class="live-log-header">
+          <h3>Live Activity</h3>
+          <button id="clearLogBtn" class="ghost" type="button">Clear</button>
+        </div>
+        <div class="table-wrap">
+          <table class="live-log-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Origin</th>
+                <th>Destination</th>
+                <th class="num">Miles</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="liveLogBody"></tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="summary-grid" id="summaryGrid">
         <article class="panel summary-card"><h3>Days</h3><p id="summaryDays">0</p></article>
         <article class="panel summary-card"><h3>Appointments</h3><p id="summaryAppointments">0</p></article>

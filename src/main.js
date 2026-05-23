@@ -1,3 +1,13 @@
+// App entry point — wires together parsing, validation, geocoding,
+// routing, and the live UI. Major changes vs. previous version:
+//   - All addresses pass through normalizeAddress() before any cache or
+//     network access, so we get consistent keys and high cache hit rates.
+//   - Processing emits streaming events; each appointment paints into the
+//     "Live Activity" panel as soon as its result is known.
+//   - The final day-card render still happens at the end (it depends on
+//     combined-route totals) but the user has been watching individual
+//     results stream in the whole time.
+
 import { parseSpreadsheet } from './spreadsheetParser.js';
 import { validateInputs } from './validation.js';
 import { CacheManager } from './cacheManager.js';
@@ -6,6 +16,7 @@ import { OpenRouteServiceProvider } from './routingProvider.js';
 import { processMileage, rebuildCombinedFromCache } from './mileageCalculator.js';
 import { UIRenderer } from './uiRenderer.js';
 import { exportCsv } from './exportService.js';
+import { log } from './logger.js';
 
 const el = {
   homeAddress: document.getElementById('homeAddress'),
@@ -27,7 +38,10 @@ const el = {
   dayList: document.getElementById('dayList'),
   perDaySummary: document.getElementById('perDaySummary'),
   errorPanel: document.getElementById('errorPanel'),
-  errorList: document.getElementById('errorList')
+  errorList: document.getElementById('errorList'),
+  liveLogPanel: document.getElementById('liveLogPanel'),
+  liveLogBody: document.getElementById('liveLogBody'),
+  clearLogBtn: document.getElementById('clearLogBtn')
 };
 
 const cache = new CacheManager();
@@ -122,8 +136,10 @@ const handlers = {
       appt.individualEdited = false;
       appt.status = 'OK';
       refreshCombinedFromCache(day);
+      ui.appendLogRow(el.liveLogBody, { type: 'appointment', date, origin: home, destination: appt.address, miles: appt.individualMiles, status: 'Retry OK' });
     } catch (e) {
       appt.status = e.message;
+      ui.appendLogRow(el.liveLogBody, { type: 'appointment', date, origin: home, destination: appt.address, miles: null, status: e.message, error: true });
     }
     renderAll();
   }
@@ -134,6 +150,8 @@ el.modeToggle?.querySelectorAll('.mode-btn').forEach(btn => {
 });
 ui.setMode('both');
 
+el.clearLogBtn?.addEventListener('click', () => ui.clearLog(el.liveLogBody));
+
 el.processBtn.addEventListener('click', async () => {
   const file = el.fileInput.files?.[0];
   const homeAddress = el.homeAddress.value.trim();
@@ -142,16 +160,26 @@ el.processBtn.addEventListener('click', async () => {
   if (errors.length) { alert(errors.join('\n')); return; }
 
   el.progressPanel.hidden = false;
+  el.liveLogPanel.hidden = false;
+  ui.clearLog(el.liveLogBody);
   el.progressText.textContent = 'Validating API key…';
   el.progressPercent.textContent = '0%';
   el.progressFill.style.width = '0%';
 
   const router = new OpenRouteServiceProvider(apiKey);
-  try { await router.validateKey(); } catch (e) { alert(e.message); el.progressPanel.hidden = true; return; }
+  try {
+    await router.validateKey();
+    log.info('API key validated.');
+  } catch (e) {
+    alert(e.message);
+    el.progressPanel.hidden = true;
+    return;
+  }
 
   let appointments;
   try {
     appointments = await parseSpreadsheet(file);
+    log.info(`parsed ${appointments.length} appointment rows`);
   } catch (e) {
     alert(e.message);
     el.progressPanel.hidden = true;
@@ -167,17 +195,24 @@ el.processBtn.addEventListener('click', async () => {
   try {
     days = await processMileage({
       homeAddress, appointments, geocoder, router, cache,
+      // Stream incremental progress percentage to the progress bar.
       onProgress: (done, total, status) => {
         const pct = total ? Math.round((done / total) * 100) : 0;
         el.progressText.textContent = `${done}/${total} - ${status}`;
         el.progressPercent.textContent = `${pct}%`;
         el.progressFill.style.width = `${pct}%`;
-      }
+      },
+      // Stream individual events into the Live Activity table so the user
+      // can watch every date / origin / destination / mileage / status pair
+      // as it's resolved, without waiting for the whole batch.
+      onEvent: (ev) => ui.appendLogRow(el.liveLogBody, ev)
     });
     el.progressText.textContent = 'Done';
     el.progressPercent.textContent = '100%';
     el.progressFill.style.width = '100%';
+    log.info('processing complete');
   } catch (e) {
+    log.error('processing failed:', e.message);
     alert(`Processing failed: ${e.message}`);
   }
   renderAll();
@@ -188,6 +223,8 @@ el.clearBtn.addEventListener('click', () => {
   days = [];
   el.fileInput.value = '';
   el.progressPanel.hidden = true;
+  el.liveLogPanel.hidden = true;
+  ui.clearLog(el.liveLogBody);
   el.progressFill.style.width = '0%';
   el.progressText.textContent = 'Waiting…';
   el.progressPercent.textContent = '0%';

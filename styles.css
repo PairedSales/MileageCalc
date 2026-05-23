@@ -94,6 +94,20 @@ a { color: var(--orange); }
 #errorList li { padding: .2rem 0; color: var(--red); }
 #errorList strong { color: var(--orange); }
 
+.live-log-panel { margin-top: .5rem; }
+.live-log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
+.live-log-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.live-log-table th, .live-log-table td { padding: .35rem .5rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.live-log-table th { color: var(--comment); font-weight: 500; position: sticky; top: 0; background: var(--bg); }
+.live-log-table tbody { display: block; max-height: 320px; overflow-y: auto; }
+.live-log-table thead, .live-log-table tbody tr { display: table; width: 100%; table-layout: fixed; }
+.live-log-table .num { text-align: right; }
+.live-log-table tr.evt-ok td.status-cell { color: var(--green, #50fa7b); }
+.live-log-table tr.evt-cached td.status-cell { color: var(--cyan, #8be9fd); }
+.live-log-table tr.evt-error td.status-cell { color: var(--red, #ff5555); }
+.live-log-table tr.evt-day td { color: var(--orange); font-weight: 600; }
+.live-log-table tr.evt-combined td { color: var(--purple, #bd93f9); }
+
 @media (max-width: 700px) {
   .trip-row { grid-template-columns: 1fr auto; grid-auto-flow: row; }
   .trip-actions { grid-column: 1 / -1; justify-content: flex-end; }

@@ -1,3 +1,15 @@
+// Spreadsheet -> appointment list.
+//
+// Each row is run through the address normalizer before leaving this module,
+// so downstream code never has to think about "1 e wacker dr." vs
+// "1 East Wacker Drive" — both come out the same.
+//
+// We intentionally KEEP duplicates: the same address can appear on multiple
+// days, or even multiple times on the same day (back-to-back appointments
+// at one location). The cache layer takes care of avoiding duplicate API calls.
+
+import { normalizeAddress } from './validation.js';
+
 export async function parseSpreadsheet(file) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
@@ -17,9 +29,15 @@ export async function parseSpreadsheet(file) {
     const r = rows[i];
     if (!r) continue;
     const date = normalizeDate(r[dateIdx]);
-    const address = String(r[addressIdx] ?? '').trim();
-    if (!date || !address) continue;
-    out.push({ date, address });
+    const rawAddress = String(r[addressIdx] ?? '').trim();
+    if (!date || !rawAddress) continue;
+    // Store both the cleaned display form and the original, in case the user
+    // wants to see what they typed.
+    out.push({
+      date,
+      address: normalizeAddress(rawAddress),
+      rawAddress
+    });
   }
   return out;
 }

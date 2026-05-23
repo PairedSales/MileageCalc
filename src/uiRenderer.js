@@ -159,6 +159,57 @@ export class UIRenderer {
     if (this.el.summaryFailed) this.el.summaryFailed.textContent = String(failed);
   }
 
+  // Streaming log — appends a single row per event so the user sees progress
+  // immediately. Uses appendChild on a tbody so rows are added in DOM-efficient
+  // single-element batches rather than re-rendering the whole table.
+  appendLogRow(body, ev) {
+    if (!body) return;
+    const tr = document.createElement('tr');
+    let cls = 'evt-ok';
+    let date = ev.date || '';
+    let origin = ev.origin || '';
+    let destination = ev.destination || '';
+    let miles = ev.miles != null ? Number(ev.miles).toFixed(2) : '—';
+    let status = ev.status || '';
+
+    if (ev.type === 'day-start') {
+      cls = 'evt-day';
+      origin = `— start of day (${ev.count} appt${ev.count === 1 ? '' : 's'}) —`;
+      destination = '';
+      miles = '';
+      status = '';
+    } else if (ev.type === 'day-end') {
+      return; // nothing user-visible to add
+    } else if (ev.type === 'combined') {
+      cls = 'evt-combined';
+      origin = 'Combined route';
+      destination = (ev.chain && ev.chain.length) ? formatChain(ev.chain, ev.chain[0]) : '—';
+    } else if (ev.error || /fail|error|invalid|not found|timeout/i.test(status)) {
+      cls = 'evt-error';
+    } else if (/cached/i.test(status)) {
+      cls = 'evt-cached';
+    }
+
+    tr.className = cls;
+    tr.innerHTML = `
+      <td>${escapeHtml(date)}</td>
+      <td>${escapeHtml(origin)}</td>
+      <td>${escapeHtml(destination)}</td>
+      <td class="num">${escapeHtml(miles)}</td>
+      <td class="status-cell">${escapeHtml(status)}</td>
+    `;
+    body.appendChild(tr);
+    // Auto-scroll to keep the latest event visible — only if the user is
+    // already near the bottom, so we don't fight them when they scroll up
+    // to investigate an earlier row.
+    const container = body;
+    if (container.scrollHeight - container.scrollTop - container.clientHeight < 80) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }
+
+  clearLog(body) { if (body) body.innerHTML = ''; }
+
   renderErrors(days) {
     const errors = [];
     for (const d of days) {

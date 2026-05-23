@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check \"c:/Users/jeffh/Coding Projects/MileageCalc/src/validation.js\")",
+      "Bash(node --check \"c:/Users/jeffh/Coding Projects/MileageCalc/src/logger.js\")",
+      "Bash(node --check \"c:/Users/jeffh/Coding Projects/MileageCalc/src/geocoder.js\")",
+      "Bash(node --check \"c:/Users/jeffh/Coding Projects/MileageCalc/src/routingProvider.js\")",
+      "Bash(node --check \"c:/Users/jeffh/Coding Projects/MileageCalc/src/cacheManager.js\")"
+    ]
+  }
+}
