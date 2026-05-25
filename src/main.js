@@ -21,6 +21,7 @@ import { log } from './logger.js';
 const el = {
   homeAddress: document.getElementById('homeAddress'),
   apiKey: document.getElementById('apiKey'),
+  apiQuotaStatus: document.getElementById('apiQuotaStatus'),
   fileInput: document.getElementById('fileInput'),
   processBtn: document.getElementById('processBtn'),
   pauseBtn: document.getElementById('pauseBtn'),
@@ -52,9 +53,33 @@ const ui = new UIRenderer(el);
 let days = [];
 let currentAbortController = null;
 const pauseState = { paused: false };
+const debounce = (fn, ms = 200) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+
+async function updateQuotaStatus() {
+  const key = el.apiKey.value.trim();
+  if (!key) {
+    if (el.apiQuotaStatus) el.apiQuotaStatus.textContent = '';
+    return;
+  }
+  if (el.apiQuotaStatus) el.apiQuotaStatus.textContent = 'Checking quota…';
+  const router = new OpenRouteServiceProvider(key);
+  const quota = await router.getQuota();
+  if (quota && el.apiQuotaStatus) {
+    const refreshDate = new Date(quota.reset * 1000);
+    const timeStr = refreshDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    el.apiQuotaStatus.textContent = `${quota.remaining}/${quota.limit} remaining. Refreshes at ${timeStr}.`;
+  } else if (el.apiQuotaStatus) {
+    el.apiQuotaStatus.textContent = 'Quota status unavailable';
+  }
+}
+const debouncedUpdateQuotaStatus = debounce(updateQuotaStatus, 500);
 
 el.apiKey.value = sessionStorage.getItem('mileagecalc:ors:key') || '';
-el.apiKey.addEventListener('input', () => sessionStorage.setItem('mileagecalc:ors:key', el.apiKey.value.trim()));
+el.apiKey.addEventListener('input', () => {
+  sessionStorage.setItem('mileagecalc:ors:key', el.apiKey.value.trim());
+  debouncedUpdateQuotaStatus();
+});
+if (el.apiKey.value) updateQuotaStatus();
 
 function renderAll() {
   const home = el.homeAddress.value.trim();

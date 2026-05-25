@@ -34,9 +34,29 @@ async function checkPause(pauseState, signal) {
 
 export function groupAppointmentsByDate(appointments) {
   const map = new Map();
+  if (!appointments.length) return map;
+
+  let minDate = appointments[0].date;
+  let maxDate = appointments[0].date;
   for (const a of appointments) {
-    if (!map.has(a.date)) map.set(a.date, []);
-    map.get(a.date).push(a);
+    if (a.date < minDate) minDate = a.date;
+    if (a.date > maxDate) maxDate = a.date;
+  }
+
+  let curr = new Date(minDate + 'T12:00:00Z');
+  const end = new Date(maxDate + 'T12:00:00Z');
+  while (curr <= end) {
+    const y = curr.getUTCFullYear();
+    const m = String(curr.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(curr.getUTCDate()).padStart(2, '0');
+    map.set(`${y}-${m}-${d}`, []);
+    curr.setUTCDate(curr.getUTCDate() + 1);
+  }
+
+  for (const a of appointments) {
+    if (map.has(a.date)) {
+      map.get(a.date).push(a);
+    }
   }
   return map;
 }
@@ -54,7 +74,6 @@ export async function processMileage({
     onProgress?.(done, total, status);
   };
 
-  // Geocode home once up front. If this fails the run can't continue.
   let homeGeo;
   try {
     homeGeo = await geocoder.geocode(homeAddress);
@@ -70,6 +89,15 @@ export async function processMileage({
     days.push(day);
     onEvent({ type: 'day-start', date, count: dayAppts.length });
 
+    if (dayAppts.length === 0) {
+      day.combinedRoute = { chain: [homeAddress], segments: [], miles: 0, finalMiles: 0, edited: false, status: 'OK' };
+      onEvent({ type: 'day-end', date });
+      continue;
+    }
+
+    const validAppts = [];
+    
+    // Pass 1: Geocoding and validation
     for (const appt of dayAppts) {
       await checkPause(pauseState, signal);
       if (signal?.aborted) throw new Error('Aborted by user');
@@ -77,8 +105,6 @@ export async function processMileage({
       const ap = makeAppointment(appt.address, appt.rawAddress);
       day.appointments.push(ap);
 
-      // Pre-flight validation. Cheap, catches obvious garbage before any
-      // network round-trip.
       const v = validateAddress(appt.address);
       if (!v.valid) {
         ap.status = `Invalid: ${v.reason}`;
@@ -89,40 +115,80 @@ export async function processMileage({
       }
 
       try {
-        const cached = cache.getSegmentMiles(homeAddress, appt.address);
+        ap.geo = await geocoder.geocode(appt.rawAddress);
+        validAppts.push(ap);
+      } catch (e) {
+        ap.status = e.message || 'Unknown error';
+        log.error(`failed ${date} ${appt.address}:`, ap.status);
+        onEvent({ type: 'appointment', date, origin: homeAddress, destination: appt.address, miles: null, status: ap.status, error: true });
+        emitProgress(ap.status);
+      }
+    }
+
+    // Pass 2: Matrix API Check
+    if (validAppts.length > 0) {
+      const locations = [ [homeGeo.lon, homeGeo.lat] ];
+      const addresses = [ homeAddress ];
+      for (const a of validAppts) {
+        if (!addresses.includes(a.address)) {
+          locations.push([a.geo.lon, a.geo.lat]);
+          addresses.push(a.address);
+        }
+      }
+
+      let needsMatrix = false;
+      const expectedChain = [homeAddress, ...validAppts.map(a => a.address), homeAddress];
+      for (let i = 0; i < expectedChain.length - 1; i++) {
+        if (cache.getSegmentMiles(expectedChain[i], expectedChain[i+1]) == null) { needsMatrix = true; break; }
+      }
+      for (const a of validAppts) {
+        if (cache.getSegmentMiles(homeAddress, a.address) == null) { needsMatrix = true; break; }
+      }
+
+      if (needsMatrix) {
+        try {
+          const matrix = await router.getMatrix(locations);
+          for (let i = 0; i < addresses.length; i++) {
+            for (let j = 0; j < addresses.length; j++) {
+              if (i !== j && matrix[i][j] != null) {
+                cache.setSegmentMiles(addresses[i], addresses[j], matrix[i][j] * 0.000621371);
+              }
+            }
+          }
+        } catch (e) {
+          log.error('Matrix API failed:', e.message);
+          // Fallback to point-to-point in subsequent passes
+        }
+      }
+    }
+
+    // Pass 3: Process Individual Miles
+    for (const ap of validAppts) {
+      try {
+        const cached = cache.getSegmentMiles(homeAddress, ap.address);
         let oneWay, fromCache = false;
         if (cached != null) {
           oneWay = cached;
           fromCache = true;
         } else {
-          const destGeo = await geocoder.geocode(appt.rawAddress);
-          oneWay = await router.getMiles(homeGeo, destGeo);
-          cache.setSegmentMiles(homeAddress, appt.address, oneWay);
-          cache.setSegmentMiles(appt.address, homeAddress, oneWay);
+          oneWay = await router.getMiles(homeGeo, ap.geo);
+          cache.setSegmentMiles(homeAddress, ap.address, oneWay);
+          cache.setSegmentMiles(ap.address, homeAddress, oneWay);
         }
         ap.homeOneWayMiles = oneWay;
         ap.individualMiles = Number((oneWay * 2).toFixed(2));
         ap.finalIndividualMiles = ap.individualMiles;
         ap.status = fromCache ? 'Cached' : 'OK';
-        log.info(`${date} | Home -> ${appt.address} | ${ap.individualMiles} mi (${ap.status})`);
-        onEvent({
-          type: 'appointment', date,
-          origin: homeAddress, destination: appt.address,
-          miles: ap.individualMiles, status: ap.status
-        });
+        log.info(`${date} | Home -> ${ap.address} | ${ap.individualMiles} mi (${ap.status})`);
+        onEvent({ type: 'appointment', date, origin: homeAddress, destination: ap.address, miles: ap.individualMiles, status: ap.status });
       } catch (e) {
         ap.status = e.message || 'Unknown error';
-        log.error(`failed ${date} ${appt.address}:`, ap.status);
-        onEvent({
-          type: 'appointment', date,
-          origin: homeAddress, destination: appt.address,
-          miles: null, status: ap.status, error: true
-        });
+        onEvent({ type: 'appointment', date, origin: homeAddress, destination: ap.address, miles: null, status: ap.status, error: true });
       }
       emitProgress(ap.status);
     }
 
-    // Combined route only after all per-appointment work is in.
+    // Pass 4: Combined Route
     try {
       await checkPause(pauseState, signal);
       if (signal?.aborted) throw new Error('Aborted by user');
@@ -191,7 +257,11 @@ export async function calculateCombinedTripMileage(appointments, homeAddress, ho
         fromCache = true;
       } else {
         // Reuse already-cached destination geocode when possible.
-        const nextGeo = nextAddress === homeAddress ? homeGeo : await geocoder.geocode(dayAppts[i+1].rawAddress);
+        let nextGeo = homeGeo;
+        if (nextAddress !== homeAddress) {
+           const appt = valid.find(a => a.address === nextAddress);
+           nextGeo = await geocoder.geocode(appt ? appt.rawAddress : nextAddress);
+        }
         miles = await router.getMiles(prevGeo, nextGeo);
         cache.setSegmentMiles(prevAddress, nextAddress, miles);
         prevGeo = nextGeo;
@@ -204,7 +274,8 @@ export async function calculateCombinedTripMileage(appointments, homeAddress, ho
       if (cached != null && nextAddress !== homeAddress) {
         // We didn't refresh prevGeo above (took the cache branch). Fetch it
         // lazily only if there's a next segment that will need it.
-        prevGeo = await geocoder.geocode(dayAppts[i+1].rawAddress);
+        const appt = valid.find(a => a.address === nextAddress);
+        prevGeo = await geocoder.geocode(appt ? appt.rawAddress : nextAddress);
       }
     } catch (e) {
       anyError = true;
