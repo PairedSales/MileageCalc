@@ -6,6 +6,8 @@
     <title>Mileage Calculator</title>
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
     <script type="module" src="src/main.js" defer></script>
   </head>
   <body>
@@ -35,8 +37,10 @@
         </div>
         <div class="actions">
           <button id="processBtn">Process Appointments</button>
+          <button id="pauseBtn" disabled class="ghost">Pause</button>
           <button id="stopBtn" disabled class="ghost">Stop</button>
           <button id="exportBtn" disabled>Export CSV</button>
+          <button id="exportPdfBtn" disabled>Export PDF</button>
           <button id="clearBtn" class="ghost">Reset</button>
         </div>
       </section>

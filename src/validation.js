@@ -79,6 +79,7 @@ const US_STATES = {
   WYOMING: 'WY', 'DISTRICT OF COLUMBIA': 'DC', DC: 'DC'
 };
 const US_STATE_CODES = new Set(Object.values(US_STATES));
+Object.values(US_STATES).forEach(code => US_STATES[code] = code);
 
 // Title-case a single token but preserve common all-caps abbreviations
 // (state codes, directionals) and ordinal suffixes like "1st", "23rd".

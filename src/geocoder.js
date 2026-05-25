@@ -52,11 +52,30 @@ export class Geocoder {
     const existing = this._inflight.get(normalized);
     if (existing) return existing;
 
-    const promise = this._fetch(normalized).finally(() => {
+    const promise = this._fetchWithFallback(normalized).finally(() => {
       this._inflight.delete(normalized);
     });
     this._inflight.set(normalized, promise);
     return promise;
+  }
+
+  async _fetchWithFallback(normalized) {
+    try {
+      return await this._fetch(normalized);
+    } catch (e) {
+      if (/not found/i.test(e.message)) {
+        // Fallback: strip leading house numbers to geocode the street.
+        const withoutNumber = normalized.replace(/^[\d-]+[a-zA-Z]*\s+/, '');
+        if (withoutNumber !== normalized && withoutNumber.length > 5) {
+          log.warn(`Geocode failed for "${normalized}", falling back to street level: "${withoutNumber}"`);
+          const point = await this._fetch(withoutNumber);
+          // Cache the result under the original address to prevent repeated fallback delays.
+          this.cache.setGeocode(normalized, point);
+          return point;
+        }
+      }
+      throw e;
+    }
   }
 
   async _fetch(normalized) {

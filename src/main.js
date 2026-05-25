@@ -15,7 +15,7 @@ import { Geocoder } from './geocoder.js';
 import { OpenRouteServiceProvider } from './routingProvider.js';
 import { processMileage, rebuildCombinedFromCache } from './mileageCalculator.js';
 import { UIRenderer } from './uiRenderer.js';
-import { exportCsv } from './exportService.js';
+import { exportCsv, exportPdf } from './exportService.js';
 import { log } from './logger.js';
 
 const el = {
@@ -23,8 +23,10 @@ const el = {
   apiKey: document.getElementById('apiKey'),
   fileInput: document.getElementById('fileInput'),
   processBtn: document.getElementById('processBtn'),
+  pauseBtn: document.getElementById('pauseBtn'),
   stopBtn: document.getElementById('stopBtn'),
   exportBtn: document.getElementById('exportBtn'),
+  exportPdfBtn: document.getElementById('exportPdfBtn'),
   clearBtn: document.getElementById('clearBtn'),
   progressPanel: document.getElementById('progressPanel'),
   progressText: document.getElementById('progressText'),
@@ -49,6 +51,7 @@ const cache = new CacheManager();
 const ui = new UIRenderer(el);
 let days = [];
 let currentAbortController = null;
+const pauseState = { paused: false };
 
 el.apiKey.value = sessionStorage.getItem('mileagecalc:ors:key') || '';
 el.apiKey.addEventListener('input', () => sessionStorage.setItem('mileagecalc:ors:key', el.apiKey.value.trim()));
@@ -60,6 +63,7 @@ function renderAll() {
   ui.renderSummary(days);
   ui.renderErrors(days);
   el.exportBtn.disabled = days.length === 0;
+  el.exportPdfBtn.disabled = days.length === 0;
 }
 
 function findAppt(date, id) {
@@ -160,6 +164,11 @@ el.stopBtn?.addEventListener('click', () => {
   }
 });
 
+el.pauseBtn?.addEventListener('click', () => {
+  pauseState.paused = !pauseState.paused;
+  el.pauseBtn.textContent = pauseState.paused ? 'Resume' : 'Pause';
+});
+
 el.processBtn.addEventListener('click', async () => {
   const file = el.fileInput.files?.[0];
   const homeAddress = el.homeAddress.value.trim();
@@ -175,6 +184,9 @@ el.processBtn.addEventListener('click', async () => {
   el.progressFill.style.width = '0%';
 
   el.processBtn.disabled = true;
+  el.pauseBtn.disabled = false;
+  pauseState.paused = false;
+  el.pauseBtn.textContent = 'Pause';
   el.stopBtn.disabled = false;
   currentAbortController = new AbortController();
   const signal = currentAbortController.signal;
@@ -187,6 +199,7 @@ el.processBtn.addEventListener('click', async () => {
     alert(e.message);
     el.progressPanel.hidden = true;
     el.processBtn.disabled = false;
+    el.pauseBtn.disabled = true;
     el.stopBtn.disabled = true;
     return;
   }
@@ -199,6 +212,7 @@ el.processBtn.addEventListener('click', async () => {
     alert(e.message);
     el.progressPanel.hidden = true;
     el.processBtn.disabled = false;
+    el.pauseBtn.disabled = true;
     el.stopBtn.disabled = true;
     return;
   }
@@ -206,6 +220,7 @@ el.processBtn.addEventListener('click', async () => {
     alert('No appointments found in spreadsheet.');
     el.progressPanel.hidden = true;
     el.processBtn.disabled = false;
+    el.pauseBtn.disabled = true;
     el.stopBtn.disabled = true;
     return;
   }
@@ -213,7 +228,7 @@ el.processBtn.addEventListener('click', async () => {
   const geocoder = new Geocoder(cache);
   try {
     days = await processMileage({
-      homeAddress, appointments, geocoder, router, cache, signal,
+      homeAddress, appointments, geocoder, router, cache, signal, pauseState,
       // Stream incremental progress percentage to the progress bar.
       onProgress: (done, total, status) => {
         const pct = total ? Math.round((done / total) * 100) : 0;
@@ -240,12 +255,14 @@ el.processBtn.addEventListener('click', async () => {
     }
   } finally {
     el.processBtn.disabled = false;
+    el.pauseBtn.disabled = true;
     el.stopBtn.disabled = true;
   }
   renderAll();
 });
 
 el.exportBtn.addEventListener('click', () => exportCsv(days));
+el.exportPdfBtn.addEventListener('click', () => exportPdf(days));
 el.clearBtn.addEventListener('click', () => {
   days = [];
   el.fileInput.value = '';

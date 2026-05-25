@@ -23,3 +23,34 @@ export function exportCsv(days) {
   a.click();
   URL.revokeObjectURL(a.href);
 }
+
+export function exportPdf(days) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  
+  const head = [['Date', 'Addresses', 'Individual Miles', 'Combined Miles', 'Status']];
+  const body = days.map(d => {
+    const addresses = d.appointments.map(a => a.address).join('; ');
+    const indiv = d.appointments.reduce((s, a) => s + (Number(a.finalIndividualMiles) || 0), 0);
+    const combined = Number(d.combinedRoute?.finalMiles) || 0;
+    const apptStatuses = d.appointments.map(a => a.status).filter(s => !['OK', 'Cached'].includes(s));
+    const status = apptStatuses.length ? apptStatuses.join('; ') : (d.combinedRoute?.status || 'OK');
+    return [d.date, addresses, indiv.toFixed(2), combined.toFixed(2), status];
+  });
+
+  const grandIndiv = days.reduce((s, d) => s + d.appointments.reduce((ss, a) => ss + (Number(a.finalIndividualMiles) || 0), 0), 0);
+  const grandCombined = days.reduce((s, d) => s + (Number(d.combinedRoute?.finalMiles) || 0), 0);
+  body.push(['TOTAL', '', grandIndiv.toFixed(2), grandCombined.toFixed(2), '']);
+
+  doc.autoTable({
+    head: head,
+    body: body,
+    startY: 20,
+    styles: { fontSize: 8 },
+    columnStyles: {
+      1: { cellWidth: 'auto' } // Addresses column
+    }
+  });
+
+  doc.save(`mileage-results-${Date.now()}.pdf`);
+}
