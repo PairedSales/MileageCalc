@@ -60,6 +60,8 @@ export function exportPdf(days) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   
+  const formatMiles = (num) => Number(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   let totalValidMiles = 0;
   let totalValidTrips = 0;
   days.forEach(d => {
@@ -112,7 +114,7 @@ export function exportPdf(days) {
     const addresses = d.appointments.map(a => a.address).join('; ');
     const status = apptStatuses.length ? apptStatuses.join('; ') : (d.combinedRoute?.status || 'OK');
     
-    processedDays.push([d.date, addresses, indiv.toFixed(2) + (anyEstimated ? '*' : ''), combined.toFixed(2), status]);
+    processedDays.push([d.date, addresses, formatMiles(indiv) + (anyEstimated ? '*' : ''), formatMiles(combined), status]);
   });
 
   doc.setFontSize(18);
@@ -134,7 +136,7 @@ export function exportPdf(days) {
     doc.setTextColor(60, 60, 60);
     years.forEach(year => {
       const { indiv, combined } = yearlyTotals[year];
-      doc.text(`${year} - Individual Miles: ${indiv.toFixed(2)} | Combined Miles: ${combined.toFixed(2)}`, 14, currentY);
+      doc.text(`${year} - Individual Miles: ${formatMiles(indiv)} | Combined Miles: ${formatMiles(combined)}`, 14, currentY);
       currentY += 6;
     });
     currentY += 4; // Add extra space before table
@@ -145,7 +147,7 @@ export function exportPdf(days) {
   const head = [['Date', 'Addresses', 'Individual Miles', 'Combined Miles', 'Status']];
   const body = processedDays;
   
-  body.push([{ content: 'TOTAL', styles: { fontStyle: 'bold' } }, '', { content: grandIndiv.toFixed(2), styles: { fontStyle: 'bold' } }, { content: grandCombined.toFixed(2), styles: { fontStyle: 'bold' } }, '']);
+  body.push([{ content: 'TOTAL', styles: { fontStyle: 'bold' } }, '', { content: formatMiles(grandIndiv), styles: { fontStyle: 'bold' } }, { content: formatMiles(grandCombined), styles: { fontStyle: 'bold' } }, '']);
 
   doc.autoTable({
     head: head,
@@ -164,7 +166,7 @@ export function exportPdf(days) {
   let finalY = doc.lastAutoTable.finalY || currentY;
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
-  doc.text(`* Indicates estimated miles based on the average of all valid individual trips (${avgIndividualMiles.toFixed(2)} miles).`, 14, finalY + 10);
+  doc.text(`* Indicates estimated miles based on the average of all valid individual trips (${formatMiles(avgIndividualMiles)} miles).`, 14, finalY + 10);
 
   doc.save(`mileage-results-${Date.now()}.pdf`);
 }
