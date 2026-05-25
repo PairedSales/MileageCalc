@@ -132,7 +132,7 @@ const handlers = {
     const geocoder = new Geocoder(cache);
     try {
       const homeGeo = await geocoder.geocode(home);
-      const destGeo = await geocoder.geocode(appt.address);
+      const destGeo = await geocoder.geocode(appt.rawAddress);
       const oneWay = await router.getMiles(homeGeo, destGeo);
       cache.setSegmentMiles(home, appt.address, oneWay);
       cache.setSegmentMiles(appt.address, home, oneWay);

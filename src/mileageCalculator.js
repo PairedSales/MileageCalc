@@ -95,7 +95,7 @@ export async function processMileage({
           oneWay = cached;
           fromCache = true;
         } else {
-          const destGeo = await geocoder.geocode(appt.address);
+          const destGeo = await geocoder.geocode(appt.rawAddress);
           oneWay = await router.getMiles(homeGeo, destGeo);
           cache.setSegmentMiles(homeAddress, appt.address, oneWay);
           cache.setSegmentMiles(appt.address, homeAddress, oneWay);
@@ -191,7 +191,7 @@ export async function calculateCombinedTripMileage(appointments, homeAddress, ho
         fromCache = true;
       } else {
         // Reuse already-cached destination geocode when possible.
-        const nextGeo = nextAddress === homeAddress ? homeGeo : await geocoder.geocode(nextAddress);
+        const nextGeo = nextAddress === homeAddress ? homeGeo : await geocoder.geocode(dayAppts[i+1].rawAddress);
         miles = await router.getMiles(prevGeo, nextGeo);
         cache.setSegmentMiles(prevAddress, nextAddress, miles);
         prevGeo = nextGeo;
@@ -204,7 +204,7 @@ export async function calculateCombinedTripMileage(appointments, homeAddress, ho
       if (cached != null && nextAddress !== homeAddress) {
         // We didn't refresh prevGeo above (took the cache branch). Fetch it
         // lazily only if there's a next segment that will need it.
-        prevGeo = await geocoder.geocode(nextAddress);
+        prevGeo = await geocoder.geocode(dayAppts[i+1].rawAddress);
       }
     } catch (e) {
       anyError = true;
