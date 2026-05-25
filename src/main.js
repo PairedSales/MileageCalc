@@ -23,6 +23,7 @@ const el = {
   apiKey: document.getElementById('apiKey'),
   fileInput: document.getElementById('fileInput'),
   processBtn: document.getElementById('processBtn'),
+  stopBtn: document.getElementById('stopBtn'),
   exportBtn: document.getElementById('exportBtn'),
   clearBtn: document.getElementById('clearBtn'),
   progressPanel: document.getElementById('progressPanel'),
@@ -47,6 +48,7 @@ const el = {
 const cache = new CacheManager();
 const ui = new UIRenderer(el);
 let days = [];
+let currentAbortController = null;
 
 el.apiKey.value = sessionStorage.getItem('mileagecalc:ors:key') || '';
 el.apiKey.addEventListener('input', () => sessionStorage.setItem('mileagecalc:ors:key', el.apiKey.value.trim()));
@@ -152,6 +154,12 @@ ui.setMode('both');
 
 el.clearLogBtn?.addEventListener('click', () => ui.clearLog(el.liveLogBody));
 
+el.stopBtn?.addEventListener('click', () => {
+  if (currentAbortController) {
+    currentAbortController.abort();
+  }
+});
+
 el.processBtn.addEventListener('click', async () => {
   const file = el.fileInput.files?.[0];
   const homeAddress = el.homeAddress.value.trim();
@@ -166,6 +174,11 @@ el.processBtn.addEventListener('click', async () => {
   el.progressPercent.textContent = '0%';
   el.progressFill.style.width = '0%';
 
+  el.processBtn.disabled = true;
+  el.stopBtn.disabled = false;
+  currentAbortController = new AbortController();
+  const signal = currentAbortController.signal;
+
   const router = new OpenRouteServiceProvider(apiKey);
   try {
     await router.validateKey();
@@ -173,6 +186,8 @@ el.processBtn.addEventListener('click', async () => {
   } catch (e) {
     alert(e.message);
     el.progressPanel.hidden = true;
+    el.processBtn.disabled = false;
+    el.stopBtn.disabled = true;
     return;
   }
 
@@ -183,18 +198,22 @@ el.processBtn.addEventListener('click', async () => {
   } catch (e) {
     alert(e.message);
     el.progressPanel.hidden = true;
+    el.processBtn.disabled = false;
+    el.stopBtn.disabled = true;
     return;
   }
   if (!appointments.length) {
     alert('No appointments found in spreadsheet.');
     el.progressPanel.hidden = true;
+    el.processBtn.disabled = false;
+    el.stopBtn.disabled = true;
     return;
   }
 
   const geocoder = new Geocoder(cache);
   try {
     days = await processMileage({
-      homeAddress, appointments, geocoder, router, cache,
+      homeAddress, appointments, geocoder, router, cache, signal,
       // Stream incremental progress percentage to the progress bar.
       onProgress: (done, total, status) => {
         const pct = total ? Math.round((done / total) * 100) : 0;
@@ -212,8 +231,16 @@ el.processBtn.addEventListener('click', async () => {
     el.progressFill.style.width = '100%';
     log.info('processing complete');
   } catch (e) {
-    log.error('processing failed:', e.message);
-    alert(`Processing failed: ${e.message}`);
+    if (e.name === 'AbortError' || e.message === 'Aborted by user') {
+      log.info('processing aborted by user');
+      el.progressText.textContent = 'Aborted';
+    } else {
+      log.error('processing failed:', e.message);
+      alert(`Processing failed: ${e.message}`);
+    }
+  } finally {
+    el.processBtn.disabled = false;
+    el.stopBtn.disabled = true;
   }
   renderAll();
 });

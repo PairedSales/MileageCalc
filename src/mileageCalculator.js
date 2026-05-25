@@ -36,7 +36,7 @@ export function groupAppointmentsByDate(appointments) {
 }
 
 export async function processMileage({
-  homeAddress, appointments, geocoder, router, cache,
+  homeAddress, appointments, geocoder, router, cache, signal,
   onEvent = () => {}, onProgress
 }) {
   const grouped = groupAppointmentsByDate(appointments);
@@ -65,6 +65,8 @@ export async function processMileage({
     onEvent({ type: 'day-start', date, count: dayAppts.length });
 
     for (const appt of dayAppts) {
+      if (signal?.aborted) throw new Error('Aborted by user');
+
       const ap = makeAppointment(appt.address, appt.rawAddress);
       day.appointments.push(ap);
 
@@ -115,8 +117,9 @@ export async function processMileage({
 
     // Combined route only after all per-appointment work is in.
     try {
+      if (signal?.aborted) throw new Error('Aborted by user');
       day.combinedRoute = await calculateCombinedTripMileage(
-        day.appointments, homeAddress, homeGeo, geocoder, router, cache, onEvent, date
+        day.appointments, homeAddress, homeGeo, geocoder, router, cache, onEvent, date, signal
       );
       onEvent({
         type: 'combined', date,
@@ -143,7 +146,7 @@ export function calculateIndividualTripMileage(appointment) {
 // Computes Home -> A -> B -> ... -> Home. Each leg is resolved independently:
 // a failed leg is recorded but the rest of the chain continues so the user
 // still gets partial results.
-export async function calculateCombinedTripMileage(appointments, homeAddress, homeGeo, geocoder, router, cache, onEvent = () => {}, date = null) {
+export async function calculateCombinedTripMileage(appointments, homeAddress, homeGeo, geocoder, router, cache, onEvent = () => {}, date = null, signal = null) {
   const route = { chain: [homeAddress], segments: [], miles: null, finalMiles: null, edited: false, status: 'Pending' };
   const valid = appointments.filter(a => a.status === 'OK' || a.status === 'Cached');
   if (!valid.length) { route.status = 'No valid addresses'; return route; }
@@ -169,6 +172,8 @@ export async function calculateCombinedTripMileage(appointments, homeAddress, ho
   const stops = [...valid.map(v => v.address), homeAddress];
 
   for (const nextAddress of stops) {
+    if (signal?.aborted) throw new Error('Aborted by user');
+
     try {
       const cached = cache.getSegmentMiles(prevAddress, nextAddress);
       let miles, fromCache = false;
