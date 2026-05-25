@@ -52,24 +52,24 @@ export class Geocoder {
     const existing = this._inflight.get(normalized);
     if (existing) return existing;
 
-    const promise = this._fetchWithFallback(normalized).finally(() => {
+    const promise = this._fetchWithFallback(address, normalized).finally(() => {
       this._inflight.delete(normalized);
     });
     this._inflight.set(normalized, promise);
     return promise;
   }
 
-  async _fetchWithFallback(normalized) {
+  async _fetchWithFallback(address, normalized) {
     try {
-      return await this._fetch(normalized);
+      return await this._fetch(address, normalized);
     } catch (e) {
       if (/not found/i.test(e.message)) {
         // Fallback: strip leading house numbers to geocode the street.
-        const withoutNumber = normalized.replace(/^[\d-]+[a-zA-Z]*\s+/, '');
-        if (withoutNumber !== normalized && withoutNumber.length > 5) {
-          log.warn(`Geocode failed for "${normalized}", falling back to street level: "${withoutNumber}"`);
-          const point = await this._fetch(withoutNumber);
-          // Cache the result under the original address to prevent repeated fallback delays.
+        const withoutNumber = address.replace(/^[\d-]+[a-zA-Z]*\s+/, '');
+        if (withoutNumber !== address && withoutNumber.length > 5) {
+          log.warn(`Geocode failed for "${address}", falling back to street level: "${withoutNumber}"`);
+          const point = await this._fetch(withoutNumber, normalized);
+          // Result is already cached by _fetch, but we can ensure it here.
           this.cache.setGeocode(normalized, point);
           return point;
         }
@@ -78,7 +78,7 @@ export class Geocoder {
     }
   }
 
-  async _fetch(normalized) {
+  async _fetch(query, cacheKey) {
     let lastErr;
     for (let attempt = 0; attempt < this.retries; attempt++) {
       const wait = this._reserveSlot();
@@ -86,7 +86,7 @@ export class Geocoder {
 
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), this.timeoutMs);
-      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(normalized)}`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&email=mileagecalc@example.com&q=${encodeURIComponent(query)}`;
       try {
         const res = await fetch(url, {
           headers: { 'Accept-Language': 'en', 'User-Agent': 'MileageCalc/1.0' },
@@ -102,8 +102,8 @@ export class Geocoder {
           lon: Number(data[0].lon),
           displayName: data[0].display_name
         };
-        this.cache.setGeocode(normalized, point);
-        log.debug('geocoded', normalized, '->', point.lat, point.lon);
+        this.cache.setGeocode(cacheKey, point);
+        log.debug('geocoded', query, '->', point.lat, point.lon);
         return point;
       } catch (e) {
         clearTimeout(timer);
@@ -111,7 +111,7 @@ export class Geocoder {
         // Don't retry "not found" — it won't change on the next call.
         if (/not found/i.test(e.message)) break;
         const backoff = 500 * Math.pow(2, attempt);
-        log.warn(`geocode attempt ${attempt + 1} failed for "${normalized}": ${e.message} — retrying in ${backoff}ms`);
+        log.warn(`geocode attempt ${attempt + 1} failed for "${query}": ${e.message} — retrying in ${backoff}ms`);
         if (attempt < this.retries - 1) await sleep(backoff);
       }
     }
